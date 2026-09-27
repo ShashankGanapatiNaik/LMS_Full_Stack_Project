@@ -78,6 +78,7 @@ public class SecurityConfig {
                 // ── Authenticated endpoints ───────────────────────────────────
                 .requestMatchers("/api/courses", "/api/courses/**").hasAnyRole("ADMIN", "INSTRUCTOR", "STUDENT")
                 .requestMatchers("/api/enrollments", "/api/enrollments/**").authenticated()
+                .requestMatchers("/api/certificates", "/api/certificates/**").authenticated()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/instructor/**").hasAnyRole("ADMIN", "INSTRUCTOR")
                 .anyRequest().authenticated()
@@ -88,3 +89,4 @@ public class SecurityConfig {
         return http.build();
     }
 }
+

@@ -2,6 +2,12 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
 
+const DownloadIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+);
+
 const TrendingUpIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
@@ -61,6 +67,7 @@ function CircleProgress({ percent }) {
 export default function Progress() {
   const [progress, setProgress] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(null); // courseId being downloaded
 
   useEffect(() => {
     api
@@ -68,6 +75,25 @@ export default function Progress() {
       .then((res) => setProgress(res.data))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleDownloadCert = async (courseId, courseTitle) => {
+    setDownloading(courseId);
+    try {
+      const res = await api.get(`/certificates/${courseId}`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Certificate - ${courseTitle}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      alert("Could not generate certificate. Please try again.");
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   const avgProgress = progress.length > 0
     ? Math.round(progress.reduce((s, p) => s + p.progressPercent, 0) / progress.length)
@@ -165,12 +191,27 @@ export default function Progress() {
                       </div>
                     </div>
 
-                    <Link
-                      to={`/courses/${p.courseId}`}
-                      className="btn-secondary text-sm flex-shrink-0"
-                    >
-                      Continue →
-                    </Link>
+                    <div className="flex flex-col gap-2 flex-shrink-0">
+                      <Link
+                        to={`/courses/${p.courseId}`}
+                        className="btn-secondary text-sm"
+                      >
+                        Continue →
+                      </Link>
+                      {p.progressPercent >= 100 && (
+                        <button
+                          onClick={() => handleDownloadCert(p.courseId, p.courseTitle)}
+                          disabled={downloading === p.courseId}
+                          className="btn-primary text-sm gap-2"
+                          style={{ background: "linear-gradient(135deg,#f59e0b,#d97706)", boxShadow: "0 4px 15px rgba(245,158,11,0.4)" }}
+                        >
+                          {downloading === p.courseId ? (
+                            <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                          ) : <DownloadIcon />}
+                          {downloading === p.courseId ? "Generating..." : "Certificate"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

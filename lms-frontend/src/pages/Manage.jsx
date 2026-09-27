@@ -12,7 +12,7 @@ const UsersIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="no
 const BookIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>;
 const ClipboardIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>;
 const SettingsIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 0 4.93 19.07 10 10 0 0 0 19.07 4.93z"/></svg>;
-const CheckIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
+
 const EyeIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>;
 const EyeOffIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>;
 
@@ -142,8 +142,10 @@ export default function Manage() {
   const loadStudents = async () => {
     try {
       const res = await api.get("/enrollments/students");
-      setStudents(res.data);
-    } catch { /* ignore if not permitted */ }
+      setStudents(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setStudents([]);
+    }
   };
 
   useEffect(() => {
@@ -160,21 +162,26 @@ export default function Manage() {
         api.get(`/courses/${course.id}/assignments`),
         api.get(`/enrollments/course/${course.id}`),
       ]);
-      setAssignments(assignRes.data);
-      setCourseEnrollments(enrollRes.data);
+      setAssignments(Array.isArray(assignRes.data) ? assignRes.data : []);
+      setCourseEnrollments(Array.isArray(enrollRes.data) ? enrollRes.data : []);
 
       // Auto-load submissions
       const subsMap = {};
-      await Promise.all(
-        assignRes.data.map(async (a) => {
-          try {
-            const r = await api.get(`/assignments/${a.id}/submissions`);
-            subsMap[a.id] = r.data;
-          } catch { subsMap[a.id] = []; }
-        })
-      );
+      if (Array.isArray(assignRes.data)) {
+        await Promise.all(
+          assignRes.data.map(async (a) => {
+            try {
+              const r = await api.get(`/assignments/${a.id}/submissions`);
+              subsMap[a.id] = Array.isArray(r.data) ? r.data : [];
+            } catch { subsMap[a.id] = []; }
+          })
+        );
+      }
       setSubmissions(subsMap);
-    } catch { /* ignore */ }
+    } catch {
+      setAssignments([]);
+      setCourseEnrollments([]);
+    }
   };
 
   const handleCreateCourse = async (e) => {
@@ -383,8 +390,10 @@ export default function Manage() {
               required
             >
               <option value="">-- Select Student --</option>
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>{s.fullName} ({s.email})</option>
+              {Array.isArray(students) && students.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.fullName || s.name || s.email || "Student"} ({s.email || "no-email"})
+                </option>
               ))}
             </select>
             <select
@@ -394,7 +403,7 @@ export default function Manage() {
               required
             >
               <option value="">-- Select Course --</option>
-              {courses.map((c) => (
+              {Array.isArray(courses) && courses.map((c) => (
                 <option key={c.id} value={c.id}>{c.title}</option>
               ))}
             </select>
@@ -422,9 +431,9 @@ export default function Manage() {
             <div className="glass rounded-2xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-white flex items-center gap-2"><UsersIcon /> Registered Students</h3>
-                <span className="badge-published">{students.length} total</span>
+                <span className="badge-published">{Array.isArray(students) ? students.length : 0} total</span>
               </div>
-              {students.length === 0 ? (
+              {(!Array.isArray(students) || students.length === 0) ? (
                 <div className="text-center py-10">
                   <div className="text-4xl mb-3">👥</div>
                   <p className="text-white/40 text-sm">No student accounts yet.</p>
@@ -446,12 +455,12 @@ export default function Manage() {
                             <div className="flex items-center gap-2">
                               <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                                 style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}>
-                                {st.fullName?.charAt(0).toUpperCase()}
+                                {(st?.fullName || st?.email || "S")?.charAt(0).toUpperCase()}
                               </div>
-                              <span className="font-medium text-white">{st.fullName}</span>
+                              <span className="font-medium text-white">{st?.fullName || "Student"}</span>
                             </div>
                           </td>
-                          <td className="py-3 pr-4 text-white/50">{st.email}</td>
+                          <td className="py-3 pr-4 text-white/50">{st?.email}</td>
                           <td className="py-3 text-right">
                             <button
                               onClick={() => handleAssignAllCourses(st.id)}
@@ -629,9 +638,9 @@ export default function Manage() {
                 <div className="glass rounded-2xl p-5 animate-fade-in">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-white text-sm">Enrolled Students</h3>
-                    <span className="badge-published">{courseEnrollments.length} enrolled</span>
+                    <span className="badge-published">{Array.isArray(courseEnrollments) ? courseEnrollments.length : 0} enrolled</span>
                   </div>
-                  {courseEnrollments.length === 0 ? (
+                  {(!Array.isArray(courseEnrollments) || courseEnrollments.length === 0) ? (
                     <div className="text-center py-8">
                       <div className="text-3xl mb-2">👥</div>
                       <p className="text-white/40 text-sm">No students enrolled in this course.</p>
@@ -641,20 +650,20 @@ export default function Manage() {
                       {courseEnrollments.map((e) => (
                         <div key={e.id} className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/3">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                               style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}>
-                              {e.student?.fullName?.charAt(0).toUpperCase()}
+                              {(e.student?.fullName || e.student?.email || "S")?.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-white">{e.student.fullName}</p>
-                              <p className="text-xs text-white/40">{e.student.email}</p>
+                              <p className="text-sm font-medium text-white">{e.student?.fullName || "Student"}</p>
+                              <p className="text-xs text-white/40">{e.student?.email || "No email"}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-4">
                             <div className="text-right">
-                              <div className="text-xs font-semibold text-brand-400">{Math.round(e.progressPercent)}%</div>
+                              <div className="text-xs font-semibold text-brand-400">{Math.round(e.progressPercent || 0)}%</div>
                               <div className="w-20 progress-bar mt-1" style={{ height: "4px" }}>
-                                <div className="progress-fill" style={{ width: `${e.progressPercent}%`, height: "4px" }} />
+                                <div className="progress-fill" style={{ width: `${e.progressPercent || 0}%`, height: "4px" }} />
                               </div>
                             </div>
                             <button

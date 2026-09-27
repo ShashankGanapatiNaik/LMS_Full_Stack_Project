@@ -260,7 +260,7 @@ function ReviewsPanel({ courseId, enrolled, user }) {
             <div key={r.id} className="glass rounded-xl p-4 border border-white/5">
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div>
-                  <span className="text-sm font-semibold text-white">{r.studentName}</span>
+                  <span className="text-sm font-semibold text-white">{r.studentName || "Anonymous Student"}</span>
                   <div className="flex gap-0.5 mt-1">
                     {[1,2,3,4,5].map((s) => (
                       <span key={s}>
@@ -550,9 +550,11 @@ export default function CourseDetail() {
   const [materials, setMaterials] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [enrolled, setEnrolled] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [mySubmissions, setMySubmissions] = useState([]);
   const [toast, setToast] = useState(null);
   const [enrolling, setEnrolling] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [expandedMaterial, setExpandedMaterial] = useState(null);
   const [activeTab, setActiveTab] = useState("materials");
   const [loading, setLoading] = useState(true);
@@ -582,7 +584,9 @@ export default function CourseDetail() {
             api.get("/enrollments/me"),
             api.get("/submissions/me").catch(() => ({ data: [] })),
           ]);
-          setEnrolled(enrollRes.data.some((e) => e.course?.id === Number(id)));
+          const myEnrollment = enrollRes.data.find((e) => e.course?.id === Number(id));
+          setEnrolled(!!myEnrollment);
+          setProgress(myEnrollment?.progressPercent ?? 0);
           setMySubmissions(subRes.data || []);
         } catch {
           // ignore
@@ -609,6 +613,34 @@ export default function CourseDetail() {
       setToast({ msg: err?.response?.data?.message || "Could not enroll. Please try again.", type: "error" });
     } finally {
       setEnrolling(false);
+    }
+  };
+
+  const handleDownloadCert = async () => {
+    setDownloading(true);
+    try {
+      const res = await api.get(`/certificates/${id}`, { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Certificate - ${course?.title}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      // If response is a blob error, parse it as text first
+      let msg = "Could not generate certificate. Please try again.";
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const parsed = JSON.parse(text);
+          msg = parsed.message || msg;
+        } catch { /* ignore */ }
+      } else if (err?.response?.data?.message) {
+        msg = err.response.data.message;
+      }
+      setToast({ msg, type: "error" });
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -670,7 +702,7 @@ export default function CourseDetail() {
             </div>
 
             {/* Enrollment CTA */}
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 flex flex-col gap-2 items-end">
               {user && user.role === "STUDENT" && !enrolled && (
                 <button
                   onClick={handleEnroll}
@@ -687,6 +719,22 @@ export default function CourseDetail() {
                 <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-emerald-400 text-sm font-semibold" style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)" }}>
                   <CheckIcon /> Enrolled
                 </div>
+              )}
+              {/* Certificate button when 100% complete */}
+              {user && user.role === "STUDENT" && enrolled && progress >= 100 && (
+                <button
+                  onClick={handleDownloadCert}
+                  disabled={downloading}
+                  className="btn-primary text-sm px-5 py-2.5 gap-2"
+                  style={{ background: "linear-gradient(135deg,#f59e0b,#d97706)", boxShadow: "0 4px 15px rgba(245,158,11,0.4)" }}
+                >
+                  {downloading ? (
+                    <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  )}
+                  {downloading ? "Generating PDF..." : "🏆 Download Certificate"}
+                </button>
               )}
               {user && user.role !== "STUDENT" && (
                 <Link to={`/manage?courseId=${course.id}`} className="btn-primary text-sm px-5 py-3">
