@@ -3,6 +3,287 @@ import { useParams, Link } from "react-router-dom";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
+/* ─── Star Icons ─── */
+const StarFilledIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" strokeWidth="1.5">
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+  </svg>
+);
+const StarEmptyIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5">
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+  </svg>
+);
+
+/* ─── Interactive Star Picker ─── */
+function StarPicker({ value, onChange, size = 28 }) {
+  const [hovered, setHovered] = useState(0);
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <button
+          key={s}
+          type="button"
+          onClick={() => onChange(s)}
+          onMouseEnter={() => setHovered(s)}
+          onMouseLeave={() => setHovered(0)}
+          className="transition-transform hover:scale-125 focus:outline-none"
+          style={{ lineHeight: 0 }}
+        >
+          {s <= (hovered || value) ? (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" strokeWidth="1.5">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+          ) : (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Rating Bar (distribution chart) ─── */
+function RatingBar({ star, count, total }) {
+  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="text-white/40 w-4 text-right">{star}</span>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" strokeWidth="1.5">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+      </svg>
+      <div className="flex-1 h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: pct > 0 ? "linear-gradient(90deg,#f59e0b,#fbbf24)" : "transparent" }} />
+      </div>
+      <span className="text-white/30 w-4">{count}</span>
+    </div>
+  );
+}
+
+/* ─── Reviews Panel ─── */
+function ReviewsPanel({ courseId, enrolled, user }) {
+  const [summary, setSummary] = useState(null);
+  const [myRating, setMyRating] = useState(0);
+  const [myReview, setMyReview] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+
+  const loadSummary = useCallback(async () => {
+    try {
+      const res = await api.get(`/courses/${courseId}/ratings`);
+      setSummary(res.data);
+      if (res.data.myRating) {
+        setMyRating(res.data.myRating);
+        setMyReview(res.data.myReview || "");
+      }
+    } catch { /* ignore */ }
+  }, [courseId]);
+
+  useEffect(() => { loadSummary(); }, [loadSummary]);
+
+  const handleSubmit = async () => {
+    if (!myRating) return;
+    setSubmitting(true);
+    setMsg(null);
+    try {
+      await api.post(`/courses/${courseId}/ratings`, { rating: myRating, review: myReview });
+      setMsg({ text: "Rating submitted! Thank you.", ok: true });
+      setEditMode(false);
+      loadSummary();
+    } catch (err) {
+      setMsg({ text: err?.response?.data?.message || "Failed to submit rating.", ok: false });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    setMsg(null);
+    try {
+      await api.delete(`/courses/${courseId}/ratings`);
+      setMyRating(0);
+      setMyReview("");
+      setEditMode(false);
+      setMsg({ text: "Your rating has been removed.", ok: true });
+      loadSummary();
+    } catch {
+      setMsg({ text: "Could not remove rating.", ok: false });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const LABELS = ["", "Poor", "Fair", "Good", "Very Good", "Excellent"];
+
+  // Distribution data
+  const dist = summary
+    ? [5, 4, 3, 2, 1].map((s) => ({
+        star: s,
+        count: (summary.reviews || []).filter((r) => r.rating === s).length,
+      }))
+    : [];
+
+  const alreadyRated = summary?.myRating != null;
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Average Score Card */}
+      <div className="glass rounded-2xl p-6">
+        <div className="flex flex-wrap gap-8 items-center">
+          {/* Big Number */}
+          <div className="text-center flex-shrink-0">
+            <div className="text-5xl font-extrabold text-white mb-1">
+              {summary?.averageRating ? summary.averageRating.toFixed(1) : "—"}
+            </div>
+            <div className="flex justify-center gap-0.5 mb-1">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <span key={s}>
+                  {s <= Math.round(summary?.averageRating || 0)
+                    ? <StarFilledIcon size={14} />
+                    : <StarEmptyIcon size={14} />}
+                </span>
+              ))}
+            </div>
+            <div className="text-xs text-white/30">{summary?.totalRatings ?? 0} ratings</div>
+          </div>
+
+          {/* Distribution bars */}
+          <div className="flex-1 min-w-[180px] space-y-1.5">
+            {dist.map(({ star, count }) => (
+              <RatingBar key={star} star={star} count={count} total={summary?.totalRatings || 0} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Rate Section (enrolled students only) */}
+      {user?.role === "STUDENT" && enrolled && (
+        <div className="glass rounded-2xl p-5 border border-white/5">
+          {!alreadyRated || editMode ? (
+            <>
+              <h3 className="font-semibold text-white mb-1">
+                {alreadyRated ? "Update your rating" : "Rate this course"}
+              </h3>
+              <p className="text-xs text-white/40 mb-4">Share your experience with other learners.</p>
+              <div className="mb-4">
+                <StarPicker value={myRating} onChange={setMyRating} />
+                {myRating > 0 && (
+                  <p className="text-xs text-amber-400 mt-1 font-medium">{LABELS[myRating]}</p>
+                )}
+              </div>
+              <textarea
+                rows={3}
+                className="input-field resize-none text-sm mb-3"
+                placeholder="Write a review (optional)..."
+                value={myReview}
+                onChange={(e) => setMyReview(e.target.value)}
+              />
+              {msg && (
+                <div className={`text-xs mb-3 ${msg.ok ? "alert-success" : "alert-error"}`}>{msg.text}</div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting || !myRating}
+                  className="btn-primary text-sm"
+                >
+                  {submitting ? "Submitting..." : alreadyRated ? "Update Rating" : "Submit Rating"}
+                </button>
+                {alreadyRated && (
+                  <button onClick={() => setEditMode(false)} className="btn-secondary text-sm">
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs text-white/40 mb-1.5">Your rating</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <span key={s}>
+                        {s <= (summary?.myRating || 0)
+                          ? <StarFilledIcon size={16} />
+                          : <StarEmptyIcon size={16} />}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="text-sm font-semibold text-amber-400">{LABELS[summary?.myRating || 0]}</span>
+                </div>
+                {summary?.myReview && (
+                  <p className="text-sm text-white/50 mt-2 italic">&ldquo;{summary.myReview}&rdquo;</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setEditMode(true)} className="btn-secondary text-xs py-2">
+                  Edit
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="text-xs py-2 px-4 rounded-xl font-semibold transition-colors"
+                  style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171" }}
+                >
+                  {deleting ? "Removing..." : "Remove"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Not enrolled notice */}
+      {user?.role === "STUDENT" && !enrolled && (
+        <div className="alert-info text-sm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Enroll in this course to leave a rating.
+        </div>
+      )}
+
+      {/* Reviews List */}
+      {(summary?.reviews || []).length === 0 ? (
+        <div className="glass rounded-2xl p-10 text-center">
+          <div className="text-4xl mb-3">⭐</div>
+          <p className="text-white/40 text-sm">No reviews yet. Be the first to rate this course!</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <h3 className="font-semibold text-white text-sm">All Reviews</h3>
+          {(summary?.reviews || []).map((r) => (
+            <div key={r.id} className="glass rounded-xl p-4 border border-white/5">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div>
+                  <span className="text-sm font-semibold text-white">{r.studentName}</span>
+                  <div className="flex gap-0.5 mt-1">
+                    {[1,2,3,4,5].map((s) => (
+                      <span key={s}>
+                        {s <= r.rating ? <StarFilledIcon size={12} /> : <StarEmptyIcon size={12} />}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <span className="text-xs text-white/30 flex-shrink-0">
+                  {new Date(r.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              {r.review && (
+                <p className="text-sm text-white/60 leading-relaxed">{r.review}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Icons ─── */
 const VideoIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -275,6 +556,7 @@ export default function CourseDetail() {
   const [expandedMaterial, setExpandedMaterial] = useState(null);
   const [activeTab, setActiveTab] = useState("materials");
   const [loading, setLoading] = useState(true);
+  const [ratingCount, setRatingCount] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -288,6 +570,11 @@ export default function CourseDetail() {
       setCourse(courseRes.data);
       setMaterials(materialsRes.data);
       setAssignments(assignmentsRes.data);
+
+      // Load rating count for tab label
+      api.get(`/courses/${id}/ratings`)
+        .then((r) => setRatingCount(r.data?.totalRatings ?? 0))
+        .catch(() => {});
 
       if (user) {
         try {
@@ -423,6 +710,7 @@ export default function CourseDetail() {
           {[
             { key: "materials", label: `Materials (${materials.length})` },
             { key: "assignments", label: `Assignments (${assignments.length})` },
+            { key: "reviews", label: `Reviews${ratingCount > 0 ? ` (${ratingCount})` : ""}` },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -491,6 +779,11 @@ export default function CourseDetail() {
               ))
             )}
           </div>
+        )}
+
+        {/* Reviews Tab */}
+        {activeTab === "reviews" && (
+          <ReviewsPanel courseId={Number(id)} enrolled={enrolled} user={user} />
         )}
       </div>
     </div>

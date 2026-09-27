@@ -68,10 +68,14 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // ── Public endpoints (no auth required) ──────────────────────
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/courses/public", "/api/courses/public/**").permitAll()
                 .requestMatchers("/api/courses/*/materials").permitAll()
                 .requestMatchers("/api/courses/*/assignments").permitAll()
+                // Ratings GET is public — POST/DELETE are guarded by @PreAuthorize
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/courses/*/ratings").permitAll()
+                // ── Authenticated endpoints ───────────────────────────────────
                 .requestMatchers("/api/courses", "/api/courses/**").hasAnyRole("ADMIN", "INSTRUCTOR", "STUDENT")
                 .requestMatchers("/api/enrollments", "/api/enrollments/**").authenticated()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
