@@ -1,0 +1,48 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.bak
+
+# Node & Frontend
+node_modules/
+lms-frontend/node_modules/
+lms-frontend/build/
+lms-frontend/dist/
+lms-frontend/.env.local
+lms-frontend/.env.development.local
+lms-frontend/.env.test.local
+lms-frontend/.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Java & Backend (Maven)
+target/
+lms-backend/target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
+.mvn/
+.classpath
+.project
+.settings/
+*.iml
+.antigravityignore

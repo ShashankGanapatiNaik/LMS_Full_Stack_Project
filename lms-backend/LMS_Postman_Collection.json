@@ -1,0 +1,222 @@
+{
+  "info": {
+    "name": "LMS Backend API",
+    "description": "Endpoints for the Learning Management System backend (Spring Boot + JWT).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api" },
+    { "key": "studentToken", "value": "" },
+    { "key": "instructorToken", "value": "" },
+    { "key": "courseId", "value": "1" },
+    { "key": "assignmentId", "value": "1" },
+    { "key": "submissionId", "value": "1" },
+    { "key": "materialId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register Instructor",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Jane Instructor\",\n  \"email\": \"instructor@lms.com\",\n  \"password\": \"password123\",\n  \"role\": \"INSTRUCTOR\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "Register Student",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Sam Student\",\n  \"email\": \"student@lms.com\",\n  \"password\": \"password123\",\n  \"role\": \"STUDENT\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "Login Instructor",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"instructor@lms.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Login Student",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student@lms.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Courses",
+      "item": [
+        {
+          "name": "Get Published Courses (Public)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/courses/public" }
+        },
+        {
+          "name": "Create Course (Instructor)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{instructorToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Intro to Spring Boot\",\n  \"description\": \"Learn to build REST APIs with Spring Boot.\"\n}"
+            },
+            "url": "{{baseUrl}}/courses"
+          }
+        },
+        {
+          "name": "Publish Course",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{instructorToken}}" }],
+            "url": "{{baseUrl}}/courses/{{courseId}}/publish?published=true"
+          }
+        },
+        {
+          "name": "Add Learning Material",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{instructorToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Week 1 Slides\",\n  \"type\": \"DOCUMENT\",\n  \"contentUrlOrText\": \"https://example.com/slides.pdf\",\n  \"orderIndex\": 1\n}"
+            },
+            "url": "{{baseUrl}}/courses/{{courseId}}/materials"
+          }
+        },
+        {
+          "name": "Get Course Materials",
+          "request": { "method": "GET", "url": "{{baseUrl}}/courses/{{courseId}}/materials" }
+        }
+      ]
+    },
+    {
+      "name": "Enrollment",
+      "item": [
+        {
+          "name": "Enroll in Course (Student)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": "{{baseUrl}}/enrollments/{{courseId}}"
+          }
+        },
+        {
+          "name": "My Enrollments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": "{{baseUrl}}/enrollments/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Assignments & Submissions",
+      "item": [
+        {
+          "name": "Create Assignment (Instructor)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{instructorToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Assignment 1: REST Controller\",\n  \"instructions\": \"Build a CRUD controller.\",\n  \"dueDate\": \"2026-12-01T23:59:00\",\n  \"maxScore\": 100\n}"
+            },
+            "url": "{{baseUrl}}/courses/{{courseId}}/assignments"
+          }
+        },
+        {
+          "name": "Submit Assignment (Student)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"submissionText\": \"Here is my solution...\",\n  \"fileUrl\": \"https://example.com/my-submission.zip\"\n}"
+            },
+            "url": "{{baseUrl}}/assignments/{{assignmentId}}/submissions"
+          }
+        },
+        {
+          "name": "Get Submissions for Assignment (Instructor)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{instructorToken}}" }],
+            "url": "{{baseUrl}}/assignments/{{assignmentId}}/submissions"
+          }
+        },
+        {
+          "name": "Grade Submission (Instructor)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{instructorToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"score\": 92,\n  \"feedback\": \"Great work, minor style issues.\"\n}"
+            },
+            "url": "{{baseUrl}}/submissions/{{submissionId}}/grade"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Progress",
+      "item": [
+        {
+          "name": "My Progress (Student)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": "{{baseUrl}}/progress/me"
+          }
+        },
+        {
+          "name": "My Progress for Course",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": "{{baseUrl}}/progress/me/course/{{courseId}}"
+          }
+        }
+      ]
+    }
+  ]
+}

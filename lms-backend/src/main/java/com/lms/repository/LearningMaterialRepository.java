@@ -1,0 +1,11 @@
+package com.lms.repository;
+
+import com.lms.entity.Course;
+import com.lms.entity.LearningMaterial;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface LearningMaterialRepository extends JpaRepository<LearningMaterial, Long> {
+    List<LearningMaterial> findByCourseOrderByOrderIndexAsc(Course course);
+}
