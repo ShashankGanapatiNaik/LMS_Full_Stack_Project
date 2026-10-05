@@ -157,6 +157,7 @@ export default function Manage() {
   const selectCourse = async (course) => {
     setSelectedCourse(course);
     setSectionTab("materials");
+    setAssignCourseId(String(course.id)); // pre-fill the course in the enroll form
     try {
       const [assignRes, enrollRes] = await Promise.all([
         api.get(`/courses/${course.id}/assignments`),
@@ -268,6 +269,16 @@ export default function Manage() {
       if (selectedCourse) selectCourse(selectedCourse);
     } catch (err) {
       showToast(err?.response?.data?.message || "Failed to assign all courses.", "error");
+    }
+  };
+
+  const handleAssignAllToCourse = async (courseId) => {
+    try {
+      const res = await api.post(`/enrollments/assign-all-to-course/${courseId}`);
+      showToast(typeof res.data === "string" ? res.data : "All students enrolled in this course!");
+      if (selectedCourse) selectCourse(selectedCourse);
+    } catch (err) {
+      showToast(err?.response?.data?.message || "Failed to assign all students.", "error");
     }
   };
 
@@ -638,43 +649,67 @@ export default function Manage() {
                 <div className="glass rounded-2xl p-5 animate-fade-in">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-white text-sm">Enrolled Students</h3>
-                    <span className="badge-published">{Array.isArray(courseEnrollments) ? courseEnrollments.length : 0} enrolled</span>
+                    <div className="flex items-center gap-2">
+                      <span className="badge-published">{Array.isArray(courseEnrollments) ? courseEnrollments.length : 0} enrolled</span>
+                      <button
+                        type="button"
+                        onClick={() => handleAssignAllToCourse(selectedCourse.id)}
+                        className="btn-primary text-xs py-1.5 px-3 gap-1"
+                      >
+                        <UsersIcon /> Assign All Students
+                      </button>
+                    </div>
                   </div>
                   {(!Array.isArray(courseEnrollments) || courseEnrollments.length === 0) ? (
                     <div className="text-center py-8">
                       <div className="text-3xl mb-2">👥</div>
                       <p className="text-white/40 text-sm">No students enrolled in this course.</p>
+                      <p className="text-white/25 text-xs mt-2">Use the sidebar to enroll students, or click "Assign All Students" above.</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {courseEnrollments.map((e) => (
-                        <div key={e.id} className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                              style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}>
-                              {(e.student?.fullName || e.student?.email || "S")?.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-white">{e.student?.fullName || "Student"}</p>
-                              <p className="text-xs text-white/40">{e.student?.email || "No email"}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-right">
-                              <div className="text-xs font-semibold text-brand-400">{Math.round(e.progressPercent || 0)}%</div>
-                              <div className="w-20 progress-bar mt-1" style={{ height: "4px" }}>
-                                <div className="progress-fill" style={{ width: `${e.progressPercent || 0}%`, height: "4px" }} />
+                      {courseEnrollments.map((e) => {
+                        // count submissions by this student across this course's assignments
+                        const studentSubs = Object.values(submissions).flat().filter(
+                          (s) => s.student?.id === e.student?.id
+                        );
+                        const submittedCount = studentSubs.length;
+                        const gradedCount = studentSubs.filter((s) => s.status === "GRADED").length;
+                        return (
+                          <div key={e.id} className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                                style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}>
+                                {(e.student?.fullName || e.student?.email || "S")?.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-white">{e.student?.fullName || "Student"}</p>
+                                <p className="text-xs text-white/40">{e.student?.email || "No email"}</p>
                               </div>
                             </div>
-                            <button
-                              onClick={() => handleRemoveEnrollment(e.id)}
-                              className="text-xs font-medium text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1"
-                            >
-                              <TrashIcon /> Remove
-                            </button>
+                            <div className="flex items-center gap-4">
+                              <div className="text-right">
+                                <div className="text-xs font-semibold text-brand-400">{Math.round(e.progressPercent || 0)}% progress</div>
+                                <div className="w-20 progress-bar mt-1" style={{ height: "4px" }}>
+                                  <div className="progress-fill" style={{ width: `${e.progressPercent || 0}%`, height: "4px" }} />
+                                </div>
+                                {assignments.length > 0 && (
+                                  <div className="text-xs text-white/30 mt-1">
+                                    {submittedCount}/{assignments.length} submitted
+                                    {gradedCount > 0 && <span className="text-emerald-400 ml-1">· {gradedCount} graded</span>}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => handleRemoveEnrollment(e.id)}
+                                className="text-xs font-medium text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1"
+                              >
+                                <TrashIcon /> Remove
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

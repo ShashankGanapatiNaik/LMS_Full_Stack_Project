@@ -72,6 +72,23 @@ public class EnrollmentService {
         }
     }
 
+    public int assignAllStudentsToCourse(Long courseId) {
+        Course course = courseService.getCourseById(courseId);
+        List<User> students = userRepository.findByRole(com.lms.entity.Role.STUDENT);
+        int count = 0;
+        for (User student : students) {
+            if (!enrollmentRepository.existsByStudentAndCourse(student, course)) {
+                enrollmentRepository.save(Enrollment.builder()
+                        .student(student)
+                        .course(course)
+                        .progressPercent(0.0)
+                        .build());
+                count++;
+            }
+        }
+        return count;
+    }
+
     public List<Enrollment> getEnrollmentsForStudent(User student) {
         return enrollmentRepository.findByStudent(student);
     }

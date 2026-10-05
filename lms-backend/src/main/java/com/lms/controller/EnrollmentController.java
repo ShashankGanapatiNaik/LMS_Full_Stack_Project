@@ -23,7 +23,6 @@ public class EnrollmentController {
     private final CurrentUserUtil currentUserUtil;
     private final UserRepository userRepository;
     private final com.lms.service.CourseService courseService;
-    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @PostMapping("/{courseId}")
     @PreAuthorize("hasRole('STUDENT')")
@@ -69,26 +68,19 @@ public class EnrollmentController {
         return ResponseEntity.ok("Student assigned to all published courses successfully.");
     }
 
+    @PostMapping("/assign-all-to-course/{courseId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'INSTRUCTOR')")
+    public ResponseEntity<String> assignAllStudentsToCourse(@PathVariable Long courseId) {
+        int count = enrollmentService.assignAllStudentsToCourse(courseId);
+        return ResponseEntity.ok("Assigned " + count + " new student(s) to the course.");
+    }
+
     @GetMapping("/students")
     @PreAuthorize("hasAnyRole('ADMIN', 'INSTRUCTOR')")
     public ResponseEntity<List<User>> getStudents() {
         List<User> students = userRepository.findAll().stream()
-                .filter(u -> u.getRole() == null || u.getRole() == Role.STUDENT || "STUDENT".equalsIgnoreCase(u.getRole().name()))
+                .filter(u -> u.getRole() == Role.STUDENT)
                 .collect(java.util.stream.Collectors.toList());
-
-        if (students.isEmpty()) {
-            User defaultStudent = userRepository.findByEmail("student@lms.com").orElseGet(() ->
-                    userRepository.save(User.builder()
-                            .fullName("Alex Student")
-                            .email("student@lms.com")
-                            .password(passwordEncoder.encode("password123"))
-                            .role(Role.STUDENT)
-                            .enabled(true)
-                            .build())
-            );
-            enrollmentService.autoEnrollInAllPublishedCourses(defaultStudent);
-            students = List.of(defaultStudent);
-        }
         return ResponseEntity.ok(students);
     }
 

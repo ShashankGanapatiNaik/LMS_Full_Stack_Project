@@ -42,10 +42,6 @@ public class CourseService {
                 .published(request.isPublished())
                 .build();
         Course savedCourse = courseRepository.save(course);
-
-        if (savedCourse.isPublished()) {
-            autoEnrollStudents(savedCourse);
-        }
         return savedCourse;
     }
 
@@ -88,10 +84,6 @@ public class CourseService {
         course.setDescription(request.getDescription());
         course.setPublished(request.isPublished());
         Course updated = courseRepository.save(course);
-
-        if (updated.isPublished()) {
-            autoEnrollStudents(updated);
-        }
         return updated;
     }
 
@@ -106,25 +98,10 @@ public class CourseService {
         }
         course.setPublished(published);
         Course updated = courseRepository.save(course);
-
-        if (published) {
-            autoEnrollStudents(updated);
-        }
         return updated;
     }
 
-    private void autoEnrollStudents(Course course) {
-        List<User> students = userRepository.findByRole(Role.STUDENT);
-        for (User student : students) {
-            if (!enrollmentRepository.existsByStudentAndCourse(student, course)) {
-                enrollmentRepository.save(Enrollment.builder()
-                        .student(student)
-                        .course(course)
-                        .progressPercent(0.0)
-                        .build());
-            }
-        }
-    }
+
 
     public void deleteCourse(Long id) {
         deleteCourse(id, null);
