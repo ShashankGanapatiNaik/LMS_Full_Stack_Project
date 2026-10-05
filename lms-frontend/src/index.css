@@ -98,11 +98,24 @@
       border border-white/10 bg-white/5 backdrop-blur-sm
       focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent
       transition-all duration-200;
+    color-scheme: dark;
   }
 
   .input-field:focus {
     background: rgba(255, 255, 255, 0.08);
     box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5);
+  }
+
+  /* Fix: native <option> elements inherit white text but render on light bg */
+  .input-field option,
+  select option {
+    background-color: #1e1b4b;
+    color: #ffffff;
+  }
+
+  select.input-field {
+    background-color: rgba(255, 255, 255, 0.07);
+    color: white;
   }
 
   /* Badge */
